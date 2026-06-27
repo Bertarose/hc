@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hors Champ — Projection</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --black: #0a0a0a;
+    --white: #f0ede6;
+    --dim: #3a3a38;
+    --accent: #00ff5a;
+    --mid: #888880;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--black);
+    color: var(--white);
+    overflow: hidden;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 8vw;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  #bank-label {
+    font-family: var(--font-mono);
+    font-size: clamp(10px, 1.2vw, 14px);
+    letter-spacing: 0.25em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 4vh;
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+
+  #word {
+    font-family: var(--font-display);
+    font-size: clamp(52px, 10vw, 140px);
+    font-weight: 300;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--white);
+    margin-bottom: 5vh;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  #definition {
+    font-family: var(--font-display);
+    font-size: clamp(13px, 2vw, 22px);
+    font-weight: 300;
+    line-height: 1.55;
+    color: var(--mid);
+    max-width: 62ch;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.6s 0.15s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .visible #bank-label,
+  .visible #word,
+  .visible #definition {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .visible #bank-label { opacity: 0.7; }
+
+  #index-bar {
+    position: fixed;
+    bottom: 6vh;
+    left: 8vw;
+    right: 8vw;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .dot {
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--dim);
+    transition: background 0.3s, transform 0.3s;
+  }
+
+  .dot.active {
+    background: var(--accent);
+    transform: scale(1.5);
+  }
+
+  #progress-line {
+    position: fixed;
+    bottom: 0; left: 0;
+    height: 2px;
+    background: var(--accent);
+    width: 0%;
+    transition: width linear;
+    opacity: 0.5;
+  }
+
+  #controls {
+    position: fixed;
+    top: 4vh; right: 4vw;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .ctrl-btn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--dim);
+    background: none;
+    border: 1px solid var(--dim);
+    padding: 6px 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .ctrl-btn:hover, .ctrl-btn.active-btn {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  #speed-display {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 0.1em;
+    min-width: 40px;
+    text-align: center;
+  }
+
+  #bank-nav {
+    position: fixed;
+    top: 4vh; left: 8vw;
+    display: flex;
+    gap: 6px;
+  }
+
+  .bank-btn {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--dim);
+    background: none;
+    border: 1px solid var(--dim);
+    padding: 5px 10px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .bank-btn.active-bank {
+    color: var(--black);
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<div id="bank-nav">
+  <button class="bank-btn active-bank" onclick="setBank('A')">A</button>
+  <button class="bank-btn" onclick="setBank('B')">B</button>
+  <button class="bank-btn" onclick="setBank('C')">C</button>
+  <button class="bank-btn" onclick="setBank('D')">D</button>
+  <button class="bank-btn" onclick="setBank('E')">E</button>
+  <button class="bank-btn" onclick="setBank('ALL')">TOUT</button>
+</div>
+
+<div id="controls">
+  <button class="ctrl-btn" id="btn-slower" onclick="changeSpeed(1)">−</button>
+  <span id="speed-display">5s</span>
+  <button class="ctrl-btn" id="btn-faster" onclick="changeSpeed(-1)">+</button>
+  <button class="ctrl-btn" id="btn-pause" onclick="togglePause()">⏸</button>
+</div>
+
+<div id="bank-label">Bank A — Identité</div>
+<div id="word">identité</div>
+<div id="definition">Ce qui fait qu'un être est lui-même et non un autre. Construction sociale autant que sentiment intime d'existence.</div>
+
+<div id="index-bar"></div>
+<div id="progress-line"></div>
+
+<script>
+const BANKS = {
+  A: {
+    label: "Identité & Système",
+    words: [
+      { w: "identité", d: "Ce qui fait qu'un être est lui-même et non un autre. Construction sociale autant que sentiment intime d'existence." },
+      { w: "non-identité", d: "Ce qui résiste à toute définition. L'excédent d'un être sur les catégories qui prétendent le contenir." },
+      { w: "présence", d: "Fait d'être là, maintenant, avec une densité qui s'impose au regard et à l'espace." },
+      { w: "absence", d: "Vide laissé par ce qui était. L'absence n'est pas le néant — elle a une forme, un poids, une adresse." },
+      { w: "effacement", d: "Processus par lequel une trace, un corps, une voix cesse d'être perceptible. Peut être subi ou choisi." },
+      { w: "neutralité", d: "Position qui prétend ne pas choisir. Rarement innocente — souvent au service du statu quo." },
+      { w: "corps", d: "Surface d'inscription du monde et de ses normes. Ce par quoi on est vu, classé, touché, interrompu." },
+      { w: "regard", d: "Acte qui construit autant qu'il perçoit. Regarder, c'est déjà transformer ce qu'on observe." },
+      { w: "silence", d: "Absence de son qui peut être refuge, exclusion, refus ou résistance. Le silence n'est jamais neutre." },
+      { w: "solitude", d: "Expérience d'être seul·e avec soi. Peut être choisie, imposée, fertile ou dévastatrice." },
+      { w: "collectif", d: "Ensemble d'existences qui se lient autour d'un geste, d'une lutte ou d'un désir commun." },
+      { w: "individu", d: "Unité minimale du social. Toujours déjà traversé·e par ce qui le·la dépasse et le·la constitue." },
+      { w: "norme", d: "Standard invisible qui définit ce qui est normal, acceptable, désirable. S'impose souvent sans se nommer." },
+      { w: "système", d: "Ensemble de règles, de forces et de relations qui s'entretiennent mutuellement et reproduisent des effets." },
+      { w: "construction", d: "Ce qui est fabriqué, assemblé, non naturel. Révèle que ce qui semble inévitable aurait pu être autrement." },
+      { w: "assignation", d: "Acte par lequel on attribue une identité, un rôle, une place à quelqu'un sans lui demander son avis." },
+      { w: "catégorisation", d: "Opération de tri qui simplifie pour gouverner. Rend gérable ce qui est complexe, au prix d'une violence." },
+      { w: "étiquette", d: "Signe collé sur un être ou une chose pour le·la rendre lisible. Réduit toujours ce qu'il désigne." },
+      { w: "langage", d: "Système de signes qui permet de dire le monde — et parfois de le faire. Il nomme, il exclut, il crée." },
+      { w: "violence", d: "Force qui s'exerce sur un corps, une pensée, une existence. Peut être physique, symbolique, structurelle." }
+    ]
+  },
+  B: {
+    label: "Données & Attention",
+    words: [
+      { w: "algorithme", d: "Suite d'instructions qui trie, classe, recommande. Façonne nos perceptions sans se montrer." },
+      { w: "monétisation", d: "Transformation d'une activité, d'une relation ou d'une attention en source de profit." },
+      { w: "archivage", d: "Conservation organisée de traces. Décide ce qui mérite de durer et ce qui peut être oublié." },
+      { w: "trace", d: "Ce qui reste d'un passage. Donnée, empreinte, souvenir — toujours fragment d'une présence passée." },
+      { w: "mémoire", d: "Faculté de retenir le passé. Sélective et malléable — la mémoire est aussi un enjeu de pouvoir." },
+      { w: "extraction", d: "Acte de prélever une ressource d'un milieu. S'applique aux matières premières comme aux données personnelles." },
+      { w: "amplification", d: "Processus qui augmente l'intensité ou la portée d'un signal, d'une émotion, d'une information." },
+      { w: "saturation", d: "État où un système a absorbé tout ce qu'il peut. Avant le débordement." },
+      { w: "flux", d: "Mouvement continu de données, d'images, d'informations. La forme contemporaine du temps." },
+      { w: "attention", d: "Ressource cognitive limitée, devenue objet de captation industrielle. Ce qu'on donne et ce qu'on perd." },
+      { w: "écoute", d: "Disposition active à recevoir. Plus rare et plus exigeante que le simple fait d'entendre." },
+      { w: "bruit", d: "Information parasite qui masque le signal. Peut aussi être résistance, débordement, noise." },
+      { w: "signal", d: "Ce qui porte une information utile à travers l'environnement. S'oppose au bruit, rarement pur." },
+      { w: "interface", d: "Zone de contact entre deux systèmes. Là où l'humain touche la machine — et inversement." },
+      { w: "friction", d: "Résistance qui ralentit un processus. Dans les systèmes numériques, souvent délibérément réduite." },
+      { w: "latence", d: "Temps de réponse d'un système. L'écart entre le moment où l'on agit et celui où l'effet se produit." },
+      { w: "contrôle", d: "Capacité à réguler, surveiller, orienter. Peut s'exercer sur soi, sur les autres, sur les flux." },
+      { w: "surveillance", d: "Observation systématique d'individus ou de comportements. Infrastructure du pouvoir contemporain." },
+      { w: "feed", d: "Flux personnalisé d'informations conçu pour retenir l'attention. Forme d'environnement fabriqué." },
+      { w: "tri", d: "Opération de séparation selon des critères. Toujours fondé sur des valeurs implicites." }
+    ]
+  },
+  C: {
+    label: "Corps & Émotion",
+    words: [
+      { w: "fatigue", d: "État d'épuisement des ressources. Peut signaler une limite, un refus du corps, une résistance silencieuse." },
+      { w: "épuisement", d: "Stade avancé de la fatigue où les réserves sont vides. Le corps dit non avant la tête." },
+      { w: "vulnérabilité", d: "Capacité à être blessé·e. Condition partagée de tout être vivant, souvent mal distribuée socialement." },
+      { w: "fragilité", d: "Qualité de ce qui peut se briser. N'est pas une faiblesse — c'est une forme d'honnêteté avec le réel." },
+      { w: "soin", d: "Attention portée à ce qui en a besoin. Pratique politique autant qu'intime." },
+      { w: "résistance", d: "Force qui s'oppose à une pression. Peut être active, passive, collective, silencieuse." },
+      { w: "refus", d: "Acte de ne pas consentir. Forme d'agentivité qui commence souvent là où les autres options manquent." },
+      { w: "retrait", d: "Mouvement de recul hors d'un espace, d'une relation, d'une norme. Peut être survie ou stratégie." },
+      { w: "ralentissement", d: "Réduction délibérée du rythme. Acte de résistance dans une culture de l'accélération." },
+      { w: "respiration", d: "Rythme fondamental du vivant. Là où commence et finit chaque moment de conscience." },
+      { w: "peur", d: "Réaction à une menace perçue. Signal utile, mais aussi instrument de gouvernement des corps." },
+      { w: "désir", d: "Force qui pousse vers ce qui manque. Moteur de la vie, cible de la récupération marchande." },
+      { w: "honte", d: "Sentiment d'être défectueux·se aux yeux d'un regard intériorisé. Outil de normalisation sociale." },
+      { w: "joie", d: "État d'expansion de l'être. Pas le bonheur de façade — la joie qui augmente la puissance d'agir." },
+      { w: "colère", d: "Réponse affective à l'injustice. Énergie politique quand elle est orientée, pas étouffée." },
+      { w: "tension", d: "État entre deux forces contraires qui ne se résolvent pas. Peut être créatrice ou destructrice." },
+      { w: "relâchement", d: "Moment où la tension cède. Peut suivre l'effort, la confiance retrouvée, ou la capitulation." },
+      { w: "trouble", d: "Perturbation d'un état stable. Judith Butler : troubler le genre, c'est en montrer la construction." },
+      { w: "vertige", d: "Sensation de perte des repères. Peut précéder une chute ou une transformation." },
+      { w: "calme", d: "Absence de turbulence intérieure. Peut être conquis, préservé, ou imposé de l'extérieur." }
+    ]
+  },
+  D: {
+    label: "Vivant & Territoire",
+    words: [
+      { w: "vivant", d: "Ce qui naît, se transforme et meurt. La vie comme processus continu de relation et d'échange." },
+      { w: "non-humain", d: "Tout ce qui existe au-delà de l'humain. Rappel que le monde ne nous appartient pas." },
+      { w: "environnement", d: "Ce qui entoure et conditionne un être. On ne peut pas être séparé de son milieu." },
+      { w: "écologie", d: "Étude des relations entre les êtres et leurs milieux. Devenu aussi un enjeu politique urgent." },
+      { w: "coexistence", d: "Fait d'exister ensemble sans éliminer l'autre. Exige une négociation permanente de l'espace." },
+      { w: "interdépendance", d: "Relation où chaque élément dépend des autres. S'oppose à l'illusion d'autonomie absolue." },
+      { w: "espèce", d: "Catégorie biologique qui regroupe des êtres partageant des caractéristiques communes. Frontière poreuse." },
+      { w: "antispécisme", d: "Refus de la hiérarchie entre espèces. Extension du principe d'égalité au-delà de l'humain." },
+      { w: "déhiérarchisation", d: "Processus qui remet en question les rapports de domination. Horizontalité comme pratique." },
+      { w: "égalité", d: "Principe selon lequel chaque être a une valeur équivalente. Jamais acquise, toujours à construire." },
+      { w: "anthropocentrisme", d: "Vision du monde centrée sur l'humain. Héritage philosophique qui justifie l'exploitation du vivant." },
+      { w: "territoire", d: "Espace approprié, habité, défendu. À la fois géographique, politique et intime." },
+      { w: "matière", d: "Ce dont les choses sont faites. La philosophie matérialiste y voit le fondement de tout." },
+      { w: "cycle", d: "Mouvement qui revient à son point de départ. Temps circulaire contre la flèche du progrès." },
+      { w: "ruine", d: "Ce qui reste d'une structure après sa dégradation. Archive involontaire d'un monde disparu." },
+      { w: "mousse", d: "Organisme pionnier qui colonise les surfaces abandonnées. Persistance discrète du vivant." },
+      { w: "forêt", d: "Écosystème complexe d'interdépendances invisibles. Réseau de communication souterrain entre arbres." },
+      { w: "animal", d: "Être vivant doté de sensibilité. Longtemps défini par ce qui lui manque pour être humain." },
+      { w: "eau", d: "Élément fondamental du vivant. Enjeu politique majeur des conflits à venir." },
+      { w: "silence", d: "Qualité de ce qui n'émet pas de son. Dans la nature, un silence dense d'activité invisible." }
+    ]
+  },
+  E: {
+    label: "Processus & Altérité",
+    words: [
+      { w: "queer", d: "Ce qui dévie de la norme hétérosexuelle et de genre. Pratique de déstabilisation des identités fixes." },
+      { w: "marge", d: "Position excentrée par rapport au centre. Souvent créatrice, toujours politique." },
+      { w: "transition", d: "Passage d'un état à un autre. Implique une période d'instabilité féconde et de vulnérabilité." },
+      { w: "flou", d: "État indéterminé entre deux positions claires. Résistance à la définition comme stratégie politique." },
+      { w: "instabilité", d: "Absence d'équilibre fixe. Condition normale du vivant, source d'anxiété dans les systèmes de contrôle." },
+      { w: "processus", d: "Déroulement d'actions dans le temps. S'oppose au résultat figé — le chemin compte autant que l'arrivée." },
+      { w: "expérimentation", d: "Démarche d'exploration sans résultat garanti. Acceptation de l'échec comme information." },
+      { w: "errance", d: "Déplacement sans destination fixe. Peut être subie ou choisie comme mode d'habiter le monde." },
+      { w: "observation", d: "Attention portée à ce qui se passe avant d'intervenir. Forme de présence au monde." },
+      { w: "intuition", d: "Connaissance immédiate qui précède le raisonnement. Forme d'intelligence souvent dévalorisée." },
+      { w: "sensibilité", d: "Capacité à percevoir finement. Souvent traitée comme défaut là où elle est une compétence." },
+      { w: "perception", d: "Façon dont un être reçoit et interprète les informations de son milieu. Toujours partielle et située." },
+      { w: "altérité", d: "Qualité de ce qui est autre. Ce qui ne peut pas être réduit au même — et ne le doit pas." },
+      { w: "relation", d: "Lien entre deux êtres ou deux éléments. Ce qui se passe dans l'entre-deux, ni l'un ni l'autre." },
+      { w: "déplacement", d: "Mouvement d'un lieu ou d'une position à une autre. Géographique, social, conceptuel." },
+      { w: "désapprentissage", d: "Processus de déconstruction de ce qu'on a appris. Nécessaire pour percevoir autrement." },
+      { w: "invisible", d: "Ce qui existe sans être vu. Rendu invisible par des structures qui n'ont pas intérêt à le montrer." },
+      { w: "présence", d: "Qualité d'être pleinement là, dans sa singularité. Ne se réduit pas à la visibilité." },
+      { w: "seuil", d: "Limite entre deux espaces ou deux états. Moment de passage chargé de potentiel." },
+      { w: "métamorphose", d: "Transformation en profondeur d'une forme. Ce qui ne revient jamais tout à fait à son état initial." }
+    ]
+  }
+};
+
+let currentBank = 'A';
+let currentIndex = 0;
+let allWords = [];
+let intervalId = null;
+let intervalDuration = 5000;
+let paused = false;
+
+function buildWordList(bank) {
+  if (bank === 'ALL') {
+    let all = [];
+    ['A','B','C','D','E'].forEach(b => {
+      BANKS[b].words.forEach(w => all.push({ ...w, bank: b, bankLabel: BANKS[b].label }));
+    });
+    return all;
+  }
+  return BANKS[bank].words.map(w => ({ ...w, bank, bankLabel: BANKS[bank].label }));
+}
+
+function setBank(bank) {
+  currentBank = bank;
+  currentIndex = 0;
+  allWords = buildWordList(bank);
+  document.querySelectorAll('.bank-btn').forEach(b => {
+    b.classList.toggle('active-bank', b.textContent === bank);
+  });
+  buildDots();
+  showWord(0, true);
+  resetInterval();
+}
+
+function buildDots() {
+  const bar = document.getElementById('index-bar');
+  bar.innerHTML = '';
+  const count = Math.min(allWords.length, 40);
+  for (let i = 0; i < count; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    bar.appendChild(d);
+  }
+}
+
+function showWord(idx, instant) {
+  currentIndex = ((idx % allWords.length) + allWords.length) % allWords.length;
+  const entry = allWords[currentIndex];
+  const container = document.body;
+
+  if (!instant) {
+    container.classList.remove('visible');
+    setTimeout(() => doShow(entry), 350);
+  } else {
+    doShow(entry);
+  }
+
+  const dots = document.querySelectorAll('.dot');
+  dots.forEach((d, i) => d.classList.toggle('active', i === (currentIndex % 40)));
+}
+
+function doShow(entry) {
+  document.getElementById('bank-label').textContent = `Bank ${entry.bank} — ${entry.bankLabel}`;
+  document.getElementById('word').textContent = entry.w;
+  document.getElementById('definition').textContent = entry.d;
+  document.body.classList.add('visible');
+  animateProgress();
+}
+
+function animateProgress() {
+  const bar = document.getElementById('progress-line');
+  bar.style.transition = 'none';
+  bar.style.width = '0%';
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      bar.style.transition = `width ${intervalDuration}ms linear`;
+      bar.style.width = '100%';
+    });
+  });
+}
+
+function resetInterval() {
+  if (intervalId) clearInterval(intervalId);
+  if (!paused) {
+    intervalId = setInterval(() => {
+      showWord(currentIndex + 1, false);
+    }, intervalDuration);
+    animateProgress();
+  }
+}
+
+function changeSpeed(delta) {
+  const steps = [2000, 3000, 4000, 5000, 7000, 10000, 15000, 20000];
+  let idx = steps.indexOf(intervalDuration);
+  if (idx === -1) idx = 3;
+  idx = Math.max(0, Math.min(steps.length - 1, idx + delta));
+  intervalDuration = steps[idx];
+  document.getElementById('speed-display').textContent = (intervalDuration / 1000) + 's';
+  resetInterval();
+}
+
+function togglePause() {
+  paused = !paused;
+  const btn = document.getElementById('btn-pause');
+  btn.textContent = paused ? '▶' : '⏸';
+  btn.classList.toggle('active-btn', paused);
+  if (paused) {
+    clearInterval(intervalId);
+    document.getElementById('progress-line').style.transition = 'none';
+  } else {
+    resetInterval();
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') { showWord(currentIndex + 1, false); resetInterval(); }
+  if (e.key === 'ArrowLeft') { showWord(currentIndex - 1, false); resetInterval(); }
+  if (e.key === 'p' || e.key === 'P') togglePause();
+});
+
+setBank('A');
+</script>
+</body>
+</html>
